@@ -1,0 +1,1038 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GitHub 热门推送 · 每日自动 Trending 早报工具</title>
+<meta name="description" content="GitHub 热门推送：Python 定时抓取 GitHub 趋势新仓库，质量过滤与热度评分精选 Top 12，自动生成中文摘要的暗黑卡片风 HTML / Markdown 日报；双击 install_task.bat 一键安装每天 20:00 的 Windows 计划任务，支持飞书 / 钉钉群推送。">
+<meta name="theme-color" content="#0a0d13">
+<meta property="og:title" content="GitHub 热门推送 · 每日自动 Trending 早报工具">
+<meta property="og:description" content="按 topics 定时抓取 GitHub 近 N 天新仓库，硬性过滤 + 热度评分 + 中文摘要，一键计划任务每天 20:00 出报告，支持飞书 / 钉钉推送。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="GitHub 热门推送">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:locale:alternate" content="en_US">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="GitHub 热门推送 · 每日自动 Trending 早报工具">
+<meta name="twitter:description" content="Python 定时抓取 GitHub 趋势新仓库，过滤评分精选 Top 12，自动生成中文摘要日报，一键安装 Windows 计划任务。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2032%2032'%3E%3Crect%20width='32'%20height='32'%20rx='7'%20fill='%230d1117'/%3E%3Cpath%20d='M6%2022l7-7%204.5%204.5L25%2012'%20stroke='%2358a6ff'%20stroke-width='3'%20fill='none'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3Cpath%20d='M19%2012h6v6'%20stroke='%233fb950'%20stroke-width='3'%20fill='none'%20stroke-linecap='round'%20stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+  :root {
+    --bg: #0a0d13;
+    --panel: #0e131a;
+    --card: #121821;
+    --card2: #161b22;
+    --border: #222b36;
+    --border2: #2e3947;
+    --text: #e6edf3;
+    --muted: #93a1b0;
+    --dim: #6e7b8a;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #f0883e;
+    --purple: #bc8cff;
+    --yellow: #e3b341;
+    --mono: ui-monospace, SFMono-Regular, "Cascadia Code", Consolas, "Courier New", monospace;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
+      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+    background: var(--bg); color: var(--text);
+    font-size: 16px; line-height: 1.7;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  ::selection { background: rgba(88,166,255,.32); }
+  a { color: var(--accent); }
+  .container { width: min(1120px, 92%); margin-inline: auto; }
+
+  /* ---------- 中英切换（默认中文；html[data-lang] 为当前语言状态） ---------- */
+  body [data-lang="en"] { display: none; }
+  html[data-lang="en"] body [data-lang="zh"] { display: none; }
+  html[data-lang="en"] body span[data-lang="en"] { display: inline; }
+  html[data-lang="en"] body :is(p, div, h1, h2, h3, h4, pre)[data-lang="en"] { display: block; }
+  html[data-lang="en"] body li[data-lang="en"] { display: list-item; }
+
+  /* ---------- 顶部导航 ---------- */
+  .site-header {
+    position: sticky; top: 0; z-index: 60;
+    background: rgba(10,13,19,.82);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .header-inner { display: flex; align-items: center; gap: 18px; height: 64px; }
+  .brand { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: var(--text); font-weight: 700; }
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 9px; flex: none;
+    display: grid; place-items: center;
+    background: linear-gradient(135deg, #16324f, #0e2536);
+    border: 1px solid #2b4a6b;
+  }
+  .brand-mark svg { display: block; }
+  .brand-name { font-size: 15.5px; letter-spacing: .01em; }
+  .site-nav { margin-left: auto; display: flex; gap: 2px; }
+  .site-nav a {
+    padding: 7px 12px; border-radius: 8px; color: var(--muted);
+    font-size: 14px; text-decoration: none; white-space: nowrap; transition: color .15s, background .15s;
+  }
+  .site-nav a:hover { color: var(--text); background: rgba(255,255,255,.05); }
+  .lang-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 14px; border-radius: 999px; cursor: pointer;
+    border: 1px solid rgba(88,166,255,.45);
+    background: rgba(88,166,255,.09); color: var(--accent);
+    font-size: 13px; font-weight: 600; font-family: inherit;
+    transition: background .15s, border-color .15s;
+  }
+  .lang-btn:hover { background: rgba(88,166,255,.18); border-color: var(--accent); }
+
+  /* ---------- 首屏 ---------- */
+  .hero { position: relative; overflow: hidden; padding: 88px 0 76px; }
+  .hero::before {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(88,166,255,.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88,166,255,.055) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(640px 420px at 62% 12%, #000 25%, transparent 74%);
+    mask-image: radial-gradient(640px 420px at 62% 12%, #000 25%, transparent 74%);
+  }
+  .hero::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background:
+      radial-gradient(1100px 480px at 78% -12%, rgba(88,166,255,.16), transparent 62%),
+      radial-gradient(800px 380px at 4% 6%, rgba(63,185,80,.09), transparent 58%);
+  }
+  .hero .container { position: relative; z-index: 1; }
+  .hero-wrap { display: grid; grid-template-columns: 1.12fr .88fr; gap: 54px; align-items: center; }
+  .eyebrow {
+    display: inline-block; color: var(--accent); font-size: 12px; font-weight: 700;
+    letter-spacing: .2em; text-transform: uppercase; margin-bottom: 18px;
+  }
+  .hero-title { font-size: clamp(30px, 4.6vw, 50px); line-height: 1.22; font-weight: 800; letter-spacing: .01em; }
+  .hero-title em {
+    font-style: normal;
+    background: linear-gradient(120deg, #58a6ff 20%, #7ee787 90%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero-sub { color: var(--muted); font-size: 16.5px; margin-top: 20px; max-width: 34em; }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 32px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 9px;
+    padding: 12px 24px; border-radius: 11px; font-weight: 600; font-size: 15px;
+    text-decoration: none; border: 1px solid transparent; cursor: pointer; font-family: inherit;
+    transition: transform .15s, box-shadow .15s, border-color .15s, background .15s;
+  }
+  .btn svg { flex: none; }
+  .btn-primary {
+    background: linear-gradient(135deg, #2f7cf6, #58a6ff); color: #fff;
+    box-shadow: 0 10px 28px rgba(66,140,255,.28);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 14px 34px rgba(66,140,255,.38); }
+  .btn-ghost { border-color: var(--border2); color: var(--text); background: rgba(255,255,255,.03); }
+  .btn-ghost:hover { border-color: rgba(88,166,255,.55); transform: translateY(-2px); }
+
+  .mini-report {
+    background: var(--panel); border: 1px solid var(--border2); border-radius: 16px;
+    box-shadow: 0 30px 80px rgba(0,0,0,.5); overflow: hidden;
+  }
+  .mini-head {
+    display: flex; justify-content: space-between; align-items: center; gap: 10px;
+    padding: 14px 18px; border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, rgba(88,166,255,.07), transparent);
+  }
+  .mini-title { font-size: 14px; font-weight: 700; }
+  .mini-date { font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+  .mini-rows { padding: 8px 10px 12px; }
+  .mini-row { display: flex; align-items: center; gap: 11px; padding: 11px 10px; border-radius: 10px; }
+  .mini-row:hover { background: rgba(88,166,255,.05); }
+  .mini-rank { font-family: var(--mono); font-weight: 700; color: var(--dim); width: 16px; flex: none; text-align: center; }
+  .mini-name { font-family: var(--mono); font-size: 13px; min-width: 0; flex: 1; }
+  .mini-name i {
+    font-style: normal; display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+    margin-right: 7px; vertical-align: 1px;
+  }
+  .mini-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .mini-stars { font-family: var(--mono); font-size: 12.5px; color: var(--yellow); white-space: nowrap; }
+  .mini-stars b { color: var(--green); font-weight: 600; margin-left: 5px; font-size: 11.5px; }
+  .mini-score {
+    font-family: var(--mono); font-size: 12px; font-weight: 700; color: #7ee0a3;
+    background: rgba(63,185,80,.1); border: 1px solid rgba(63,185,80,.35);
+    border-radius: 7px; padding: 2px 8px; white-space: nowrap;
+  }
+  .mini-new { font-size: 10.5px; color: var(--green); margin-left: 5px; }
+  .mini-foot {
+    padding: 11px 18px; border-top: 1px solid var(--border);
+    color: var(--dim); font-size: 11.5px; font-family: var(--mono);
+  }
+  .mini-cap { text-align: center; color: var(--dim); font-size: 12.5px; margin-top: 12px; }
+
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-top: 44px; }
+  .stat { border: 1px solid var(--border); background: rgba(255,255,255,.02); border-radius: 13px; padding: 15px 17px; }
+  .stat b { display: block; font-size: 21px; font-family: var(--mono); font-weight: 700; letter-spacing: .01em; }
+  .stat-label { color: var(--muted); font-size: 12.5px; margin-top: 3px; line-height: 1.5; }
+
+  /* ---------- 章节通用 ---------- */
+  .section { padding: 88px 0; scroll-margin-top: 76px; }
+  .section-alt { background: linear-gradient(180deg, rgba(255,255,255,.016), rgba(255,255,255,0) 320px); }
+  .section-head { max-width: 760px; margin-bottom: 44px; }
+  .section-head h2 { font-size: clamp(24px, 3vw, 32px); font-weight: 800; line-height: 1.3; margin-top: 10px; }
+  .section-head .lead { color: var(--muted); margin-top: 14px; font-size: 15.5px; }
+
+  /* ---------- 功能卡 ---------- */
+  .feature-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+  .card {
+    background: linear-gradient(180deg, var(--card2), var(--panel));
+    border: 1px solid var(--border); border-radius: 15px; padding: 24px 22px 22px;
+    transition: transform .18s, border-color .18s, box-shadow .18s;
+  }
+  .card:hover { transform: translateY(-4px); border-color: rgba(88,166,255,.45); box-shadow: 0 18px 40px rgba(0,0,0,.35); }
+  .icon-chip {
+    width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; margin-bottom: 15px;
+    background: rgba(88,166,255,.1); color: var(--accent); border: 1px solid rgba(88,166,255,.22);
+  }
+  .c-green  { background: rgba(63,185,80,.1);  color: var(--green);  border-color: rgba(63,185,80,.25); }
+  .c-orange { background: rgba(240,136,62,.1); color: var(--orange); border-color: rgba(240,136,62,.25); }
+  .c-purple { background: rgba(188,140,255,.1);color: var(--purple);border-color: rgba(188,140,255,.25); }
+  .c-yellow { background: rgba(227,179,65,.1); color: var(--yellow); border-color: rgba(227,179,65,.25); }
+  .card h3 { font-size: 16.5px; font-weight: 700; margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 14px; line-height: 1.75; }
+  .card .icode { color: #a5c8ff; }
+
+  .icode {
+    font-family: var(--mono); font-size: .86em;
+    background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.16);
+    color: #a5c8ff; padding: 1px 7px; border-radius: 6px; white-space: nowrap;
+  }
+
+  /* ---------- 步骤 ---------- */
+  .steps { display: grid; gap: 22px; }
+  .step {
+    display: flex; gap: 20px; align-items: flex-start;
+    background: linear-gradient(180deg, var(--card2), var(--panel));
+    border: 1px solid var(--border); border-radius: 16px; padding: 24px;
+  }
+  .step-no {
+    width: 44px; height: 44px; border-radius: 13px; flex: none;
+    display: grid; place-items: center; font-family: var(--mono); font-weight: 800; font-size: 17px; color: #fff;
+    background: linear-gradient(135deg, #2f7cf6, #58a6ff);
+    box-shadow: 0 8px 20px rgba(66,140,255,.25);
+  }
+  .step-body { min-width: 0; flex: 1; }
+  .step-body h3 { font-size: 17.5px; font-weight: 700; }
+  .step-body > p { color: var(--muted); font-size: 14.5px; margin: 7px 0 14px; }
+
+  .terminal { border: 1px solid var(--border2); border-radius: 13px; overflow: hidden; background: #090d13; }
+  .term-head { display: flex; align-items: center; gap: 7px; padding: 10px 15px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.02); }
+  .term-dot { width: 10px; height: 10px; border-radius: 50%; }
+  .term-dot:nth-child(1) { background: #ff5f57; }
+  .term-dot:nth-child(2) { background: #febc2e; }
+  .term-dot:nth-child(3) { background: #28c840; }
+  .term-title { margin-left: 8px; font-family: var(--mono); font-size: 11.5px; color: var(--dim); }
+  .term-body { padding: 16px 18px; font-family: var(--mono); font-size: 13.2px; line-height: 1.95; overflow-x: auto; }
+  .term-body .p { color: var(--green); user-select: none; }
+  .term-body .cmd { color: #e6edf3; }
+  .term-body .cm { color: var(--dim); }
+  .dep-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .dep {
+    font-family: var(--mono); font-size: 12.5px; color: #a5c8ff;
+    background: rgba(88,166,255,.08); border: 1px solid rgba(88,166,255,.2);
+    padding: 3px 11px; border-radius: 999px;
+  }
+
+  .task-list { list-style: none; display: grid; gap: 11px; }
+  .task-list li { position: relative; padding-left: 26px; color: var(--muted); font-size: 14.5px; }
+  .task-list li::before {
+    content: ""; position: absolute; left: 2px; top: 9px;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--green); box-shadow: 0 0 0 4px rgba(63,185,80,.14);
+  }
+
+  .outputs { margin-top: 22px; border: 1px solid var(--border); border-radius: 13px; overflow: hidden; }
+  .outputs-row { display: grid; grid-template-columns: 300px 1fr; border-bottom: 1px solid var(--border); }
+  .outputs-row:last-child { border-bottom: none; }
+  .outputs-row:nth-child(odd) { background: rgba(255,255,255,.014); }
+  .outputs-file { padding: 12px 18px; font-family: var(--mono); font-size: 13px; color: #7ee0a3; border-right: 1px solid var(--border); word-break: break-all; }
+  .outputs-desc { padding: 12px 18px; color: var(--muted); font-size: 13.8px; }
+
+  /* ---------- 配置表 ---------- */
+  .table-scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; background: var(--panel); }
+  .cfg-table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 720px; }
+  .cfg-table th {
+    text-align: left; padding: 13px 16px; color: var(--dim); font-size: 12px;
+    letter-spacing: .08em; text-transform: uppercase; border-bottom: 1px solid var(--border2);
+    background: rgba(255,255,255,.02); white-space: nowrap;
+  }
+  .cfg-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .cfg-table tr:last-child td { border-bottom: none; }
+  .cfg-table tbody tr:hover td { background: rgba(88,166,255,.045); }
+  .cfg-key { font-family: var(--mono); font-size: 13px; color: #a5c8ff; white-space: nowrap; }
+  .cfg-def { font-family: var(--mono); font-size: 12.5px; color: var(--yellow); white-space: nowrap; }
+  .cfg-desc { color: var(--muted); font-size: 13.6px; }
+
+  .formula-note { color: var(--muted); font-size: 14px; margin-top: 14px; }
+  .subblock { margin-top: 34px; }
+  .subblock h3 { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+  .subblock .sub-lead { color: var(--muted); font-size: 14.5px; margin-bottom: 16px; }
+
+  /* ---------- 样例报告 ---------- */
+  .report { border: 1px solid var(--border2); border-radius: 17px; background: var(--panel); overflow: hidden; box-shadow: 0 24px 60px rgba(0,0,0,.35); }
+  .report-head { padding: 22px 26px 18px; border-bottom: 1px solid var(--border); background: linear-gradient(180deg, rgba(88,166,255,.06), transparent); }
+  .report-title { font-size: 18.5px; font-weight: 800; }
+  .report-meta { color: var(--dim); font-size: 13px; margin-top: 7px; line-height: 1.7; }
+  .report-body { padding: 6px 0 20px; }
+  .repo-table { width: 100%; border-collapse: collapse; font-size: 13.6px; min-width: 780px; }
+  .repo-table th {
+    text-align: left; padding: 11px 16px; color: var(--dim); font-size: 11.5px;
+    letter-spacing: .07em; border-bottom: 1px solid var(--border2); white-space: nowrap;
+  }
+  .repo-table td { padding: 11px 16px; border-bottom: 1px solid rgba(34,43,54,.65); vertical-align: top; }
+  .repo-table tbody tr:hover td { background: rgba(88,166,255,.05); }
+  .rank { font-family: var(--mono); font-weight: 700; color: var(--dim); }
+  .repo-name { font-family: var(--mono); font-size: 13px; white-space: nowrap; }
+  .repo-name a { color: var(--accent); text-decoration: none; }
+  .repo-name a:hover { text-decoration: underline; }
+  .lang-cell { white-space: nowrap; font-size: 13px; color: var(--muted); }
+  .lang-cell i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 0; }
+  .stars-cell { font-family: var(--mono); white-space: nowrap; color: var(--yellow); font-size: 13px; }
+  .stars-cell b { color: var(--green); font-weight: 600; margin-left: 5px; font-size: 12px; }
+  .fork-cell { font-family: var(--mono); white-space: nowrap; color: var(--muted); font-size: 13px; }
+  .score-cell { font-family: var(--mono); font-weight: 700; color: #7ee0a3; white-space: nowrap; }
+  .hl-cell { color: var(--muted); font-size: 12.8px; max-width: 300px; }
+  .new-badge {
+    display: inline-block; font-size: 10.5px; margin-left: 7px; padding: 1px 6px; border-radius: 6px;
+    color: var(--green); background: rgba(63,185,80,.11); border: 1px solid rgba(63,185,80,.4); vertical-align: 1px;
+  }
+
+  .repo-detail { margin: 20px 22px 6px; padding: 20px 22px; background: var(--card2); border: 1px solid var(--border); border-radius: 13px; }
+  .repo-detail h4 { font-family: var(--mono); font-size: 15px; font-weight: 700; }
+  .repo-detail h4 a { color: var(--accent); text-decoration: none; }
+  .repo-detail h4 a:hover { text-decoration: underline; }
+  .detail-meta { color: var(--dim); font-size: 12.5px; margin-top: 6px; font-family: var(--mono); }
+  .detail-desc { color: var(--muted); font-size: 13.5px; margin-top: 12px; }
+  .detail-hl {
+    margin-top: 13px; padding: 10px 14px; border-left: 3px solid var(--accent);
+    background: rgba(88,166,255,.06); border-radius: 0 9px 9px 0; font-size: 13.5px;
+  }
+  .sec-title { color: var(--accent); font-size: 13px; font-weight: 700; margin: 15px 0 6px; letter-spacing: .03em; }
+  .sec-list { list-style: none; }
+  .sec-list li { position: relative; padding-left: 18px; color: var(--muted); font-size: 13.3px; margin-top: 4px; }
+  .sec-list li::before { content: "·"; position: absolute; left: 4px; color: var(--dim); font-weight: 700; }
+  .tag-row { display: flex; flex-wrap: wrap; gap: 7px; }
+  .tag {
+    font-family: var(--mono); font-size: 11.5px; padding: 2px 10px; border-radius: 999px;
+    color: #c9b3ff; background: rgba(188,140,255,.1); border: 1px solid rgba(188,140,255,.28);
+  }
+  .report-legend { padding: 16px 26px 20px; color: var(--dim); font-size: 12.8px; line-height: 1.8; border-top: 1px dashed var(--border); }
+  .sample-note { color: var(--dim); font-size: 12.8px; margin-top: 16px; text-align: center; }
+
+  /* ---------- FAQ ---------- */
+  .faq-list { display: grid; gap: 13px; max-width: 860px; }
+  .faq-list details { background: var(--panel); border: 1px solid var(--border); border-radius: 13px; overflow: hidden; }
+  .faq-list summary {
+    display: flex; justify-content: space-between; align-items: center; gap: 16px;
+    padding: 17px 22px; cursor: pointer; font-weight: 600; font-size: 15.5px; list-style: none;
+  }
+  .faq-list summary::-webkit-details-marker { display: none; }
+  .faq-list summary:hover { color: var(--accent); }
+  .faq-list details[open] summary { border-bottom: 1px solid var(--border); }
+  .chev { flex: none; color: var(--dim); transition: transform .2s; }
+  .faq-list details[open] .chev { transform: rotate(180deg); }
+  .faq-body { padding: 16px 22px 19px; color: var(--muted); font-size: 14.3px; line-height: 1.85; }
+
+  /* ---------- 结尾 CTA 与页脚 ---------- */
+  .cta-band {
+    border: 1px solid rgba(88,166,255,.3); border-radius: 20px; padding: 52px 30px; text-align: center;
+    background:
+      radial-gradient(600px 220px at 50% -40%, rgba(88,166,255,.16), transparent 70%),
+      linear-gradient(180deg, var(--card2), var(--panel));
+  }
+  .cta-band h2 { font-size: clamp(22px, 3vw, 30px); font-weight: 800; }
+  .cta-band p { color: var(--muted); margin: 13px auto 26px; max-width: 40em; }
+  .site-footer { border-top: 1px solid var(--border); padding: 30px 0 34px; }
+  .footer-line { text-align: center; color: var(--dim); font-size: 13.5px; letter-spacing: .04em; }
+
+  /* ---------- 响应式 ---------- */
+  @media (max-width: 1020px) {
+    .feature-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero-wrap { grid-template-columns: 1fr; gap: 40px; }
+    .mini-report { max-width: 560px; }
+  }
+  @media (max-width: 920px) {
+    .header-inner { flex-wrap: wrap; height: auto; padding: 10px 0 6px; row-gap: 2px; }
+    .site-nav { order: 3; width: 100%; margin-left: 0; overflow-x: auto; padding-bottom: 6px; }
+    .lang-btn { margin-left: auto; }
+  }
+  @media (max-width: 700px) {
+    .section { padding: 64px 0; }
+    .hero { padding: 56px 0 52px; }
+    .feature-grid { grid-template-columns: 1fr; }
+    .feature-grid .card { min-width: 0; }
+    .icode { white-space: normal; word-break: break-word; }
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .step { flex-direction: column; gap: 14px; padding: 20px; }
+    .outputs-row { grid-template-columns: 1fr; }
+    .outputs-file { border-right: none; border-bottom: 1px dashed var(--border); }
+    .report-head, .report-legend { padding-inline: 16px; }
+    .repo-detail { margin: 16px 12px 4px; padding: 16px; }
+    .hero-cta .btn { width: 100%; justify-content: center; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="container header-inner">
+    <a class="brand" href="#top" aria-label="GitHub 热门推送">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#58a6ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6" stroke="#3fb950"/>
+        </svg>
+      </span>
+      <span class="brand-name"><span data-lang="zh">GitHub 热门推送</span><span data-lang="en">GitHub Trending Daily</span></span>
+    </a>
+    <nav class="site-nav" aria-label="主导航">
+      <a href="#features"><span data-lang="zh">功能特性</span><span data-lang="en">Features</span></a>
+      <a href="#install"><span data-lang="zh">快速开始</span><span data-lang="en">Quick Start</span></a>
+      <a href="#config"><span data-lang="zh">配置说明</span><span data-lang="en">Config</span></a>
+      <a href="#sample"><span data-lang="zh">报告样例</span><span data-lang="en">Sample</span></a>
+      <a href="#faq"><span data-lang="zh">常见问题</span><span data-lang="en">FAQ</span></a>
+    </nav>
+    <button id="lang-toggle" class="lang-btn" type="button" aria-label="Switch to English">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18z"/>
+      </svg>
+      <span id="lang-label">English</span>
+    </button>
+  </div>
+</header>
+
+<main id="top">
+
+  <!-- ============ 首屏 ============ -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-wrap">
+        <div>
+          <span class="eyebrow"><span data-lang="zh">Python 命令行工具 · 开箱即用 · 单文件实现</span><span data-lang="en">Python CLI tool · out of the box · single-file core</span></span>
+          <h1 class="hero-title">
+            <span data-lang="zh">每天 20:00，一份 <em>GitHub 热门早报</em>自动到手</span>
+            <span data-lang="en">A fresh <em>GitHub trending report</em> in your hands, every day at 20:00</span>
+          </h1>
+          <p class="hero-sub">
+            <span data-lang="zh">按 topics 检索 GitHub 最近 N 天新建的仓库，硬性质量过滤与热度评分精选 Top N，并发拉取 README 自动生成中文摘要，输出暗黑卡片风 HTML 与 Markdown 双格式报告，可选推送飞书 / 钉钉群。</span>
+            <span data-lang="en">It searches GitHub for repos created within the last N days by topics, applies hard quality filters and a weighted trending score to pick the Top N, fetches READMEs concurrently to build automatic Chinese summaries, and outputs a dark-themed HTML + Markdown report — with optional Feishu / DingTalk group push.</span>
+          </p>
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="#install">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+              <span data-lang="zh">一键安装每日任务</span><span data-lang="en">One-click daily task</span>
+            </a>
+            <a class="btn btn-ghost" href="#sample">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16"/><path d="M4 12h10"/><path d="M4 19h7"/></svg>
+              <span data-lang="zh">查看真实报告样例</span><span data-lang="en">See a real report</span>
+            </a>
+          </div>
+        </div>
+
+        <div>
+          <div class="mini-report" aria-label="报告预览">
+            <div class="mini-head">
+              <span class="mini-title"><span data-lang="zh">GitHub 热门项目早报</span><span data-lang="en">GitHub Trending Report</span></span>
+              <span class="mini-date">2026-10-24 20:01</span>
+            </div>
+            <div class="mini-rows">
+              <div class="mini-row">
+                <span class="mini-rank">1</span>
+                <span class="mini-name"><i style="background:#3572A5"></i><span>MemTensor/MemT-1.0</span></span>
+                <span class="mini-stars">★ 382<b>+16</b></span>
+                <span class="mini-score">145.9</span>
+              </div>
+              <div class="mini-row">
+                <span class="mini-rank">2</span>
+                <span class="mini-name"><i style="background:#8b949e"></i><span>h9-tec/ai-roadmap-2026</span></span>
+                <span class="mini-stars">★ 148<b>+18</b></span>
+                <span class="mini-score">101.9</span>
+              </div>
+              <div class="mini-row">
+                <span class="mini-rank">3</span>
+                <span class="mini-name"><i style="background:#f1e05a"></i><span>liyupi/dafeiyu-cleaner</span></span>
+                <span class="mini-stars">★ 55<b>+26</b></span>
+                <span class="mini-score">83.5</span>
+              </div>
+              <div class="mini-row">
+                <span class="mini-rank">4</span>
+                <span class="mini-name"><i style="background:#8b949e"></i><span>AnythingLLM-Desktop<em class="mini-new">🆕</em></span></span>
+                <span class="mini-stars">★ 37</span>
+                <span class="mini-score">76.1</span>
+              </div>
+            </div>
+            <div class="mini-foot"><span data-lang="zh">扫描 200 → 去重 192 → 过滤后 51 → Top 12</span><span data-lang="en">Scanned 200 → deduped 192 → filtered to 51 → Top 12</span></div>
+          </div>
+          <p class="mini-cap">
+            <span data-lang="zh">摘自 2026-10-24 由计划任务自动生成的真实早报，数据未做修改</span>
+            <span data-lang="en">From the real report auto-generated by the scheduled task on 2026-10-24 — unedited</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="stats">
+        <div class="stat">
+          <b>16 <span data-lang="zh">份</span><span data-lang="en">reports</span></b>
+          <div class="stat-label"><span data-lang="zh">累计自动生成的日报归档（reports/ 目录，10 月 2 日起）</span><span data-lang="en">daily reports auto-generated so far (in reports/, since Oct 2)</span></div>
+        </div>
+        <div class="stat">
+          <b>200 → 12</b>
+          <div class="stat-label"><span data-lang="zh">单轮扫描、合并去重、硬性过滤后的精选数量</span><span data-lang="en">repos scanned, deduped and hard-filtered per run</span></div>
+        </div>
+        <div class="stat">
+          <b>20:00</b>
+          <div class="stat-label"><span data-lang="zh">每天由 Windows 计划任务自动运行，睡眠中可唤醒</span><span data-lang="en">daily auto-run via Windows scheduled task, wake-from-sleep enabled</span></div>
+        </div>
+        <div class="stat">
+          <b>5 / 3.9+</b>
+          <div class="stat-label"><span data-lang="zh">第三方依赖数量 / 最低 Python 版本（建议 3.10+）</span><span data-lang="en">third-party dependencies / minimum Python (3.10+ recommended)</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 功能特性 ============ -->
+  <section id="features" class="section section-alt">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow"><span data-lang="zh">功能特性</span><span data-lang="en">Features</span></span>
+        <h2><span data-lang="zh">从检索到推送，一条命令全搞定</span><span data-lang="en">From search to push, one command does it all</span></h2>
+        <p class="lead">
+          <span data-lang="zh">九个环节全部内置在一个 main.py 里（Config / GitHubClient / RepoFilter / Scorer / ReadmeSummarizer / Translator / ReportRenderer / Notifier / Pipeline），装好依赖即可运行。</span>
+          <span data-lang="en">All nine stages live inside a single main.py (Config / GitHubClient / RepoFilter / Scorer / ReadmeSummarizer / Translator / ReportRenderer / Notifier / Pipeline) — install the dependencies and you are ready to go.</span>
+        </p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="card">
+          <div class="icon-chip" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          </div>
+          <h3><span data-lang="zh">多维度检索</span><span data-lang="en">Multi-dimensional search</span></h3>
+          <p><span data-lang="zh">调用 GitHub Search API，<span class="icode">topic:{t} + created:&gt;{N天前} + language:{lang}</span> 多组合逐个查询、合并去重，只盯最近 N 天新冒出来的仓库。</span><span data-lang="en">Queries the GitHub Search API with <span class="icode">topic:{t} + created:&gt;{N-days-ago} + language:{lang}</span> combinations, merged and deduplicated — only repos created within the last N days.</span></p>
+        </article>
+
+        <article class="card">
+          <div class="icon-chip c-green" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.6-3 8.6-7 10-4-1.4-7-5.4-7-10V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+          </div>
+          <h3><span data-lang="zh">Token 池与限流容错</span><span data-lang="en">Token pool &amp; rate-limit resilience</span></h3>
+          <p><span data-lang="zh">多 PAT 自动轮换，实时监控 <span class="icode">x-ratelimit-remaining</span>；全部耗尽按 <span class="icode">x-ratelimit-reset</span> 等待（封顶 120 秒）；网络异常 / 5xx 指数退避重试，超时 connect 10s / read 30s。</span><span data-lang="en">Rotates multiple PATs automatically while watching <span class="icode">x-ratelimit-remaining</span>; when exhausted it waits per <span class="icode">x-ratelimit-reset</span> (capped at 120 s). Network errors and 5xx get exponential-backoff retries; timeouts are 10 s connect / 30 s read.</span></p>
+        </article>
+
+        <article class="card">
+          <div class="icon-chip c-orange" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16l-6 7v6l-4-2v-4L4 5z"/></svg>
+          </div>
+          <h3><span data-lang="zh">硬性质量过滤</span><span data-lang="en">Hard quality filters</span></h3>
+          <p><span data-lang="zh">剔除 fork 仓库、Star 低于 <span class="icode">min_stars</span>、无描述、README 拉取失败或为空的条目，全程打印各阶段过滤统计。</span><span data-lang="en">Drops forks, repos below <span class="icode">min_stars</span>, entries without a description, and repos whose README fetch failed or came back empty — with per-stage filter stats printed along the way.</span></p>
+        </article>
+
+        <article class="card">
+          <div class="icon-chip c-yellow" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>
+          </div>
+          <h3><span data-lang="zh">可配权重热度评分</span><span data-lang="en">Weighted trending score</span></h3>
+          <p><span data-lang="zh">日均增星 + 对数压缩的 Star / Fork 体量三项加权求和，权重 <span class="icode">w1/w2/w3</span> 全部可在配置里调整，按分数排序取 Top N。</span><span data-lang="en">Combines stars-per-day with log-scaled star and fork volume; the three weights <span class="icode">w1/w2/w3</span> are fully configurable, and the list is ranked by score to keep the Top N.</span></p>
+        </article>
+
+        <article class="card">
+          <div class="icon-chip c-purple" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3z"/><path d="M19 15l.9 2.6L22.5 18l-2.6.9L19 21.5l-.9-2.6L15.5 18l2.6-.9L19 15z"/></svg>
+          </div>
+          <h3><span data-lang="zh">LLM 摘要 + 规则兜底</span><span data-lang="en">LLM summaries with rule fallback</span></h3>
+          <p><span data-lang="zh">线程池并发拉取 README（raw 优先、Base64 回退，截前 2000 字符），LLM 提炼【核心功能】【技术栈】【适用场景】与一句话亮点；未配置 LLM 时本地规则生成同等结构，任何字段不会留空。</span><span data-lang="en">Fetches READMEs concurrently (raw first, Base64 fallback, first 2,000 chars) and distills core features, tech stack, use cases and a one-line highlight via any OpenAI-compatible LLM. Without an LLM key, local rules produce the same structure — no field is ever left empty.</span></p>
+        </article>
+
+        <article class="card">
+          <div class="icon-chip c-green" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h9"/><path d="M8 3v2c0 4-2 7-5 9"/><path d="M6 10c1.5 3 4 5 7 6"/><path d="M13 20l4.5-11L22 20"/><path d="M15 15h5"/></svg>
+          </div>
+          <h3><span data-lang="zh">免费中文翻译</span><span data-lang="en">Free Chinese translation</span></h3>
+          <p><span data-lang="zh">MyMemory 免费引擎（无需 API Key，匿名额度约 5000 字符/天），翻译结果缓存到本地，重复内容零消耗；超额度内容次日自动补翻，失败只跳过该条，绝不中断报告。</span><span data-lang="en">The MyMemory engine works without an API key (roughly 5,000 chars/day anonymously). Results are cached locally so repeated content costs nothing; anything over the daily budget is translated the next day, and a failed item is simply skipped — report generation never breaks.</span></p>
+        </article>
+
+        <article class="card">
+          <div class="icon-chip" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1V8l-4-5z"/><path d="M14 3v5h4"/><path d="M10 12l-2 2 2 2"/><path d="M14 12l2 2-2 2"/></svg>
+          </div>
+          <h3><span data-lang="zh">双格式报告</span><span data-lang="en">Dual-format reports</span></h3>
+          <p><span data-lang="zh">Jinja2 内嵌模板渲染暗黑扁平风、响应式卡片 HTML（作者头像 / Star·Fork / 语言徽章 / 热度分 / 三个摘要小节 / 直达链接），同步生成 Markdown 报告。</span><span data-lang="en">A built-in Jinja2 template renders a dark, flat, responsive card-style HTML report (author avatar, stars &amp; forks, language badge, trending score, three summary sections, direct links), with a matching Markdown report generated side by side.</span></p>
+        </article>
+
+        <article class="card">
+          <div class="icon-chip c-orange" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9a6 6 0 1 1 12 0c0 5 2 6 2 6H4s2-1 2-6"/><path d="M10.5 20a2 2 0 0 0 3 0"/></svg>
+          </div>
+          <h3><span data-lang="zh">飞书 / 钉钉推送</span><span data-lang="en">Feishu / DingTalk push</span></h3>
+          <p><span data-lang="zh">飞书 interactive 卡片与钉钉 markdown 消息两种格式独立开关；推送失败只打印告警，不影响本地 HTML / Markdown 输出；未配置 Webhook 时保存后自动用浏览器打开。</span><span data-lang="en">Feishu interactive cards and DingTalk markdown messages, each with an independent switch. A failed push only prints a warning and never affects local output; with no webhook configured, the HTML opens in your browser right after saving.</span></p>
+        </article>
+
+        <article class="card">
+          <div class="icon-chip c-purple" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          </div>
+          <h3><span data-lang="zh">抗改名计划任务</span><span data-lang="en">Rename-proof scheduled task</span></h3>
+          <p><span data-lang="zh">双击 <span class="icode">install_task.bat</span> 注册每天 20:00 的计划任务；启动器部署在 %LOCALAPPDATA%，凭标记文件定位工具目录——本文件夹改名、移动都不会让任务失效。</span><span data-lang="en">Double-click <span class="icode">install_task.bat</span> to register the daily 20:00 task. The launcher lives under %LOCALAPPDATA% and locates the tool by a marker file — renaming or moving the tool folder never breaks the task.</span></p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 快速开始 ============ -->
+  <section id="install" class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow"><span data-lang="zh">快速开始</span><span data-lang="en">Quick Start</span></span>
+        <h2><span data-lang="zh">三步跑起来，一键常驻后台</span><span data-lang="en">Three steps to run, one click to keep it running</span></h2>
+        <p class="lead">
+          <span data-lang="zh">需要 Python 3.9+（建议 3.10+）。全部实现集中在 main.py 一个文件，没有 Web 服务、没有数据库，clone 下来就能用。</span>
+          <span data-lang="en">Requires Python 3.9+ (3.10+ recommended). Everything lives in the single main.py — no web server, no database. Clone it and go.</span>
+        </p>
+      </div>
+
+      <div class="steps">
+        <div class="step">
+          <div class="step-no">1</div>
+          <div class="step-body">
+            <h3><span data-lang="zh">安装依赖</span><span data-lang="en">Install the dependencies</span></h3>
+            <p><span data-lang="zh">只有 5 个第三方依赖，一条命令装完：</span><span data-lang="en">Just five third-party dependencies, installed in one command:</span></p>
+            <div class="terminal">
+              <div class="term-head"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">pip</span></div>
+              <div class="term-body"><span class="p">$ </span><span class="cmd">pip install -r requirements.txt</span></div>
+            </div>
+            <div class="dep-chips">
+              <span class="dep">requests</span><span class="dep">rich</span><span class="dep">PyYAML</span><span class="dep">Jinja2</span><span class="dep">APScheduler</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">2</div>
+          <div class="step-body">
+            <h3><span data-lang="zh">立即运行一次</span><span data-lang="en">Run it right now</span></h3>
+            <p><span data-lang="zh"><span class="icode">run</span> 是默认子命令，可省略；<span class="icode">schedule</span> 启动后立即跑第一轮，Ctrl+C 退出：</span><span data-lang="en"><span class="icode">run</span> is the default sub-command and can be omitted; <span class="icode">schedule</span> runs the first round immediately and stops with Ctrl+C:</span></p>
+            <div class="terminal">
+              <div class="term-head"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">github-trending</span></div>
+              <div class="term-body"><span class="p">$ </span><span class="cmd">python main.py run</span><span class="cm">                          # </span><span data-lang="zh"><span class="cm">立即执行一次（默认子命令，可省略）</span></span><span data-lang="en"><span class="cm">run once immediately (default sub-command)</span></span><br><span class="p">$ </span><span class="cmd">python main.py schedule --every-hours 24</span><span class="cm">    # </span><span data-lang="zh"><span class="cm">每 24 小时定时执行一轮</span></span><span data-lang="en"><span class="cm">loop every 24 hours (Ctrl+C to stop)</span></span><br><span class="p">$ </span><span class="cmd">python main.py --config D:/my.yaml run</span><span class="cm">      # </span><span data-lang="zh"><span class="cm">使用自定义配置文件</span></span><span data-lang="en"><span class="cm">use a custom config file</span></span></div>
+            </div>
+            <p style="margin-top:14px">
+              <span data-lang="zh">运行时终端输出扫描进度条、过滤统计表与 Top N 摘要表格；结束后报告落盘，未配置 Webhook 且 <span class="icode">auto_open: true</span> 时自动在浏览器打开 HTML。</span>
+              <span data-lang="en">The terminal shows a scan progress bar, filter statistics and a Top N summary table; reports are written on finish, and with no webhook plus <span class="icode">auto_open: true</span> the HTML opens in your browser automatically.</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-no">3</div>
+          <div class="step-body">
+            <h3><span data-lang="zh">一键安装每日计划任务（Windows）</span><span data-lang="en">One-click daily scheduled task (Windows)</span></h3>
+            <p><span data-lang="zh">双击 <span class="icode">install_task.bat</span>，注册名为 <span class="icode">GitHubTrendingDaily</span> 的计划任务，安装一次长期无人值守：</span><span data-lang="en">Double-click <span class="icode">install_task.bat</span> to register a scheduled task named <span class="icode">GitHubTrendingDaily</span> — install once and forget about it:</span></p>
+            <ul class="task-list">
+              <li><span data-lang="zh">每天 <strong>20:00</strong> 自动运行；睡眠中可唤醒执行；错过时间（如关机）下次开机自动补跑；失败每 15 分钟重试一次，共 3 次。</span><span data-lang="en">Runs automatically at <strong>20:00</strong> every day; it can wake the machine from sleep, catches up on missed runs (e.g. after a shutdown) at next boot, and retries every 15 minutes up to 3 times on failure.</span></li>
+              <li><span data-lang="zh">任务不直接指向本文件夹，而是指向 <span class="icode">%LOCALAPPDATA%\GitHubTrending\run_task.ps1</span> 稳定启动器；启动器凭 <span class="icode">trending-tool.marker</span> 标记文件在桌面 / 文档 / 下载等位置自动定位工具目录，因此本文件夹改名、移动都不会让任务失效。</span><span data-lang="en">The task does not point at the tool folder. It points to a stable launcher at <span class="icode">%LOCALAPPDATA%\GitHubTrending\run_task.ps1</span>, which finds the tool through the <span class="icode">trending-tool.marker</span> file by searching Desktop / Documents / Downloads — so renaming or moving the tool folder never breaks it.</span></li>
+              <li><span data-lang="zh">运行日志写入 <span class="icode">logs\daily.log</span>，超过约 2 MB 自动轮转；计划任务环境已强制 UTF-8，emoji 描述不会导致崩溃。</span><span data-lang="en">Run logs go to <span class="icode">logs\daily.log</span> with automatic rotation past ~2 MB; UTF-8 is forced in the scheduled environment so emoji in repo descriptions never crash it.</span></li>
+              <li><span data-lang="zh">生成失败时弹 Windows 系统通知，并写入 <span class="icode">logs\LAST_RUN_FAILED.txt</span>；成功运行会自动清除该文件。</span><span data-lang="en">On failure it raises a Windows toast notification and writes <span class="icode">logs\LAST_RUN_FAILED.txt</span>; a successful run clears that file automatically.</span></li>
+              <li><span data-lang="zh">想改运行时间：修改 <span class="icode">install_task.ps1</span> 里的 <span class="icode">"20:00"</span> 后重新双击 <span class="icode">install_task.bat</span> 即可；卸载双击 <span class="icode">uninstall_task.bat</span>。</span><span data-lang="en">To change the run time, edit <span class="icode">"20:00"</span> in <span class="icode">install_task.ps1</span> and double-click <span class="icode">install_task.bat</span> again; uninstall via <span class="icode">uninstall_task.bat</span>.</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="subblock">
+        <h3><span data-lang="zh">每次运行会生成什么（reports/ 目录）</span><span data-lang="en">What every run produces (the reports/ directory)</span></h3>
+        <p class="sub-lead">
+          <span data-lang="zh">报告按时间戳归档，同时维护固定文件名的「最新报告」与可翻阅的历史索引：</span>
+          <span data-lang="en">Each report is archived by timestamp, alongside a fixed-name "latest" copy and a browsable history index:</span>
+        </p>
+        <div class="outputs">
+          <div class="outputs-row">
+            <div class="outputs-file"><span data-lang="zh">github_trending_时间戳.html / .md</span><span data-lang="en">github_trending_&lt;timestamp&gt;.html / .md</span></div>
+            <div class="outputs-desc"><span data-lang="zh">每次运行的历史报告归档，一份不落。</span><span data-lang="en">Archived copy of every run, nothing is lost.</span></div>
+          </div>
+          <div class="outputs-row">
+            <div class="outputs-file">最新报告.html / .md</div>
+            <div class="outputs-desc"><span data-lang="zh">固定文件名，始终指向最近一次报告——记不住路径就双击这里。</span><span data-lang="en">Fixed file name that always holds the latest report — double-click this one if you can't remember paths.</span></div>
+          </div>
+          <div class="outputs-row">
+            <div class="outputs-file">index.html</div>
+            <div class="outputs-desc"><span data-lang="zh">历史报告索引页，可点击翻阅全部往期报告。</span><span data-lang="en">A history index page listing every past report, one click away.</span></div>
+          </div>
+          <div class="outputs-row">
+            <div class="outputs-file">history.json</div>
+            <div class="outputs-desc"><span data-lang="zh">跨天累积的历史数据，支撑报告中的 🆕 新上榜与 Star 增量（+N）标注。</span><span data-lang="en">Cross-day history that powers the 🆕 new-entry and star-delta (+N) markers in the reports.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 配置说明 ============ -->
+  <section id="config" class="section section-alt">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow"><span data-lang="zh">配置说明</span><span data-lang="en">Configuration</span></span>
+        <h2><span data-lang="zh">一个 config.yaml，所有选项都有注释</span><span data-lang="en">One config.yaml, every option commented</span></h2>
+        <p class="lead">
+          <span data-lang="zh">所有字段均可省略，省略时使用内置默认值；工具附带完整注释版配置文件，改哪一行都有说明。</span>
+          <span data-lang="en">Every field is optional — omit it and the built-in default applies. A fully commented config file ships with the tool.</span>
+        </p>
+      </div>
+
+      <div class="table-scroll">
+        <table class="cfg-table">
+          <thead>
+            <tr>
+              <th><span data-lang="zh">配置项</span><span data-lang="en">Option</span></th>
+              <th><span data-lang="zh">默认值</span><span data-lang="en">Default</span></th>
+              <th><span data-lang="zh">说明</span><span data-lang="en">Description</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="cfg-key">topics</td>
+              <td class="cfg-def">unity · game-development · llm · agent</td>
+              <td class="cfg-desc"><span data-lang="zh">要监控的 GitHub topics，逐个参与组合查询。</span><span data-lang="en">GitHub topics to watch; each is queried in combination.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">languages</td>
+              <td class="cfg-def"><span data-lang="zh">[]（不限语言）</span><span data-lang="en">[] (any language)</span></td>
+              <td class="cfg-desc"><span data-lang="zh">只关注这些编程语言，与 topics 组合查询；留空表示不限。</span><span data-lang="en">Restrict searches to these languages; empty means any language.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">days</td>
+              <td class="cfg-def">7</td>
+              <td class="cfg-desc"><span data-lang="zh">只检索最近 N 天内创建的仓库。</span><span data-lang="en">Only repos created within the last N days.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">top_n</td>
+              <td class="cfg-def">12</td>
+              <td class="cfg-desc"><span data-lang="zh">最终榜单数量（建议 10~15）。</span><span data-lang="en">Final list size (10–15 recommended).</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">min_stars</td>
+              <td class="cfg-def">20</td>
+              <td class="cfg-desc"><span data-lang="zh">硬性过滤：低于该 Star 数的仓库直接剔除。</span><span data-lang="en">Hard filter: repos below this star count are dropped.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">per_page</td>
+              <td class="cfg-def">50</td>
+              <td class="cfg-desc"><span data-lang="zh">单次搜索请求返回的仓库数上限（1~100）。</span><span data-lang="en">Max results per search request (1–100).</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">weights</td>
+              <td class="cfg-def">w1 2.0 / w2 1.0 / w3 0.5</td>
+              <td class="cfg-desc"><span data-lang="zh">热度评分公式三项权重，见下方公式。</span><span data-lang="en">The three weights of the trending formula, see below.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">tokens</td>
+              <td class="cfg-def"><span data-lang="zh">[]（匿名访问）</span><span data-lang="en">[] (anonymous access)</span></td>
+              <td class="cfg-desc"><span data-lang="zh">GitHub PAT 列表，多 Token 自动轮换；留空为匿名限流 60 次/小时。</span><span data-lang="en">GitHub PAT pool, rotated automatically; empty means anonymous access at 60 requests/hour.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">max_workers</td>
+              <td class="cfg-def">6</td>
+              <td class="cfg-desc"><span data-lang="zh">拉取 README / 调用 LLM 的并发线程数。</span><span data-lang="en">Worker threads for README fetching and LLM calls.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">llm.enabled</td>
+              <td class="cfg-def">false</td>
+              <td class="cfg-desc"><span data-lang="zh">启用后由任意 OpenAI 兼容接口提炼中文摘要；关闭时走本地规则。</span><span data-lang="en">When on, any OpenAI-compatible API writes the Chinese summaries; when off, local rules apply.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">webhooks.feishu / dingtalk</td>
+              <td class="cfg-def">false / ""</td>
+              <td class="cfg-desc"><span data-lang="zh">飞书、钉钉群机器人的独立开关与 Webhook 地址。</span><span data-lang="en">Independent Feishu / DingTalk bot toggles and webhook URLs.</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">translate.enabled</td>
+              <td class="cfg-def">true</td>
+              <td class="cfg-desc"><span data-lang="zh">免费中文翻译（MyMemory 引擎，结果缓存，超额度次日补翻）。</span><span data-lang="en">Free Chinese translation (MyMemory engine, cached; over-budget content is caught up the next day).</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">output_dir</td>
+              <td class="cfg-def">reports</td>
+              <td class="cfg-desc"><span data-lang="zh">报告输出目录（相对路径基于脚本所在目录）。</span><span data-lang="en">Report output directory (relative paths resolve against the script).</span></td>
+            </tr>
+            <tr>
+              <td class="cfg-key">auto_open</td>
+              <td class="cfg-def">true</td>
+              <td class="cfg-desc"><span data-lang="zh">未配置任何 Webhook 时，保存报告后自动用浏览器打开 HTML。</span><span data-lang="en">With no webhook configured, auto-open the HTML report in your browser after saving.</span></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="subblock">
+        <h3><span data-lang="zh">热度评分公式</span><span data-lang="en">The trending score</span></h3>
+        <p class="sub-lead">
+          <span data-lang="zh">更看重「刚创建就快速涨星」，同时保留体量参考：</span>
+          <span data-lang="en">It favors repos that gain stars fast right after creation, while keeping volume in play:</span>
+        </p>
+        <div class="terminal">
+          <div class="term-head"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">score</span></div>
+          <div class="term-body">
+            <span data-lang="zh">score = w1 × (stars / days_since_created)   <span class="cm"># 日均增星，衡量「近期增速」</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ w2 × log10(1 + stars)               <span class="cm"># 绝对热度（对数压缩，避免头部碾压）</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ w3 × log10(1 + forks)               <span class="cm"># 社区参与度</span></span>
+            <span data-lang="en">score = w1 × (stars / days_since_created)   <span class="cm"># stars per day since creation (growth speed)</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ w2 × log10(1 + stars)               <span class="cm"># absolute popularity, log-scaled</span><br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;+ w3 × log10(1 + forks)               <span class="cm"># community engagement</span></span>
+          </div>
+        </div>
+        <p class="formula-note">
+          <span data-lang="zh">仓库年龄下限 1.0 天，避免除零与超新仓库失真；想更偏体量就调大 w2 / w3，更偏增速就调大 w1。</span>
+          <span data-lang="en">Repo age is clamped to a 1.0-day minimum to avoid division blow-ups; raise w2 / w3 to favor volume, raise w1 to favor growth speed.</span>
+        </p>
+      </div>
+
+      <div class="subblock">
+        <h3><span data-lang="zh">接入 LLM（可选，任意 OpenAI 兼容服务）</span><span data-lang="en">Plug in an LLM (optional, any OpenAI-compatible service)</span></h3>
+        <p class="sub-lead">
+          <span data-lang="zh">直接用 HTTP 调用 <span class="icode">{base_url}/chat/completions</span>，不依赖 openai SDK；LLM 调用失败自动回退本地规则摘要：</span>
+          <span data-lang="en">Calls <span class="icode">{base_url}/chat/completions</span> over plain HTTP with no openai SDK; a failed LLM call falls back to the local rule-based summarizer:</span>
+        </p>
+        <div class="terminal">
+          <div class="term-head"><span class="term-dot"></span><span class="term-dot"></span><span class="term-dot"></span><span class="term-title">config.yaml</span></div>
+          <div class="term-body">
+            <span data-lang="zh">llm:<br>&nbsp;&nbsp;enabled: true<br>&nbsp;&nbsp;api_key: <span class="cmd">"sk-xxxx"</span>                          <span class="cm"># 任意 OpenAI 兼容服务的密钥</span><br>&nbsp;&nbsp;base_url: <span class="cmd">"https://api.deepseek.com/v1"</span>   <span class="cm"># 如 DeepSeek / 通义 / OpenAI</span><br>&nbsp;&nbsp;model: <span class="cmd">"deepseek-chat"</span></span>
+            <span data-lang="en">llm:<br>&nbsp;&nbsp;enabled: true<br>&nbsp;&nbsp;api_key: <span class="cmd">"sk-xxxx"</span>                          <span class="cm"># key of any OpenAI-compatible service</span><br>&nbsp;&nbsp;base_url: <span class="cmd">"https://api.deepseek.com/v1"</span>   <span class="cm"># e.g. DeepSeek / OpenAI / your relay</span><br>&nbsp;&nbsp;model: <span class="cmd">"deepseek-chat"</span></span>
+          </div>
+        </div>
+        <p class="formula-note">
+          <span data-lang="zh">模型按 JSON 返回 core_features / tech_stack / use_cases / highlight 四个字段；终端会统计「LLM 提炼 N 个，规则兜底 M 个」。</span>
+          <span data-lang="en">The model returns four JSON fields — core_features / tech_stack / use_cases / highlight — and the terminal reports how many summaries came from the LLM versus the fallback rules.</span>
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 报告样例 ============ -->
+  <section id="sample" class="section">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow"><span data-lang="zh">真实样例</span><span data-lang="en">A Real Sample</span></span>
+        <h2><span data-lang="zh">一份没修过的日报长这样</span><span data-lang="en">What an unedited daily report looks like</span></h2>
+        <p class="lead">
+          <span data-lang="zh">以下内容摘自 <span class="icode">reports/github_trending_20261024_2001.md</span>——2026-10-24 20:01 由计划任务自动生成，数据未做任何修改。工具默认输出中文报告（免费翻译已开启）。</span>
+          <span data-lang="en">Excerpted from <span class="icode">reports/github_trending_20261024_2001.md</span> — generated automatically by the scheduled task at 20:01 on 2026-10-24, completely unedited. The tool produces reports in Chinese by default (free translation enabled).</span>
+        </p>
+      </div>
+
+      <div class="report">
+        <div class="report-head">
+          <div class="report-title">GitHub 热门项目早报 · 2026-10-24</div>
+          <div class="report-meta">生成时间: 2026-10-24 20:01:52 ｜ 检索窗口: 近 7 天 ｜ 扫描 200 个仓库(去重 192, 硬性过滤后 51) ｜ 精选 Top 12</div>
+        </div>
+        <div class="report-body">
+          <div class="table-scroll" style="border:none;border-radius:0;">
+            <table class="repo-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>项目</th>
+                  <th>Star</th>
+                  <th>Fork</th>
+                  <th>语言</th>
+                  <th>热度分</th>
+                  <th>一句话亮点</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="rank">1</td>
+                  <td class="repo-name"><a href="https://github.com/MemTensor/MemT-1.0" target="_blank" rel="noopener">MemTensor/MemT-1.0</a></td>
+                  <td class="stars-cell">382<b>+16</b></td>
+                  <td class="fork-cell">17</td>
+                  <td class="lang-cell"><i style="background:#3572A5"></i>Python</td>
+                  <td class="score-cell">145.9</td>
+                  <td class="hl-cell">MemT-1.0：扩展和应用。研究记忆……</td>
+                </tr>
+                <tr>
+                  <td class="rank">2</td>
+                  <td class="repo-name"><a href="https://github.com/h9-tec/ai-roadmap-2026" target="_blank" rel="noopener">h9-tec/ai-roadmap-2026</a></td>
+                  <td class="stars-cell">148<b>+18</b></td>
+                  <td class="fork-cell">14</td>
+                  <td class="lang-cell"><i style="background:#8b949e"></i>未知</td>
+                  <td class="score-cell">101.9</td>
+                  <td class="hl-cell">ai-roadmap-2026：逐层。选择一个图层，……</td>
+                </tr>
+                <tr>
+                  <td class="rank">3</td>
+                  <td class="repo-name"><a href="https://github.com/liyupi/dafeiyu-cleaner" target="_blank" rel="noopener">liyupi/dafeiyu-cleaner</a></td>
+                  <td class="stars-cell">55<b>+26</b></td>
+                  <td class="fork-cell">1</td>
+                  <td class="lang-cell"><i style="background:#f1e05a"></i>JavaScript</td>
+                  <td class="score-cell">83.5</td>
+                  <td class="hl-cell">dafeiyu-cleaner: 一眼认出大肥鱼：评论一加载就鉴定…</td>
+                </tr>
+                <tr>
+                  <td class="rank">4</td>
+                  <td class="repo-name"><a href="https://github.com/QuickButlerPace65/AnythingLLM-Desktop" target="_blank" rel="noopener">QuickButlerPace65/AnythingLLM-Desktop</a><span class="new-badge">🆕 新上榜</span></td>
+                  <td class="stars-cell">37</td>
+                  <td class="fork-cell">12</td>
+                  <td class="lang-cell"><i style="background:#8b949e"></i>未知</td>
+                  <td class="score-cell">76.1</td>
+                  <td class="hl-cell">AnythingLLM-Desktop：🧳真正的便携性：无插件……</td>
+                </tr>
+                <tr>
+                  <td class="rank">5</td>
+                  <td class="repo-name"><a href="https://github.com/C4rohan/Lampline" target="_blank" rel="noopener">C4rohan/Lampline</a></td>
+                  <td class="stars-cell">171<b>+7</b></td>
+                  <td class="fork-cell">30</td>
+                  <td class="lang-cell"><i style="background:#3572A5"></i>Python</td>
+                  <td class="score-cell">68.5</td>
+                  <td class="hl-cell">Lampline：让您的代理商从Dialogflo过来……</td>
+                </tr>
+                <tr>
+                  <td class="rank">6</td>
+                  <td class="repo-name"><a href="https://github.com/Umair/stalemap" target="_blank" rel="noopener">Umair/stalemap</a></td>
+                  <td class="stars-cell">100<b>+1</b></td>
+                  <td class="fork-cell">41</td>
+                  <td class="lang-cell"><i style="background:#3178c6"></i>TypeScript</td>
+                  <td class="score-cell">45.4</td>
+                  <td class="hl-cell">stalemap：编码代理从tr学习库……</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="repo-detail">
+            <h4><a href="https://github.com/MemTensor/MemT-1.0" target="_blank" rel="noopener">MemTensor/MemT-1.0</a></h4>
+            <div class="detail-meta">创建时间: 2026-10-19 ｜ 语言: Python ｜ Star: 382 ｜ Fork: 17 ｜ 热度分: 145.9</div>
+            <p class="detail-desc">描述: MemT-1.0 的官方存储库</p>
+            <p class="detail-hl"><strong>一句话亮点</strong>：MemT-1.0：扩展和应用。研究记忆……</p>
+            <p class="sec-title">【核心功能】</p>
+            <ul class="sec-list">
+              <li>扩展和应用。研究记忆扩展并演示……</li>
+            </ul>
+            <p class="sec-title">【技术栈】</p>
+            <div class="tag-row"><span class="tag">Python</span><span class="tag">RAG</span><span class="tag">LLM</span></div>
+            <p class="sec-title">【适用场景】</p>
+            <ul class="sec-list">
+              <li>内存架构。引入 MemT-1.0，改进内存存储和……</li>
+              <li>扩展和应用。研究内存扩展并演示原生…</li>
+            </ul>
+          </div>
+        </div>
+        <div class="report-legend">
+          <span data-lang="zh">🆕 表示与往期报告对比后新上榜的项目；+N 为自上一份报告以来的 Star 增量，两者都由跨天累积的 reports/history.json 提供数据。表格列依次为：名次 · 项目 · Star（增量）· Fork · 语言 · 热度分 · 一句话亮点；报告内每个项目都附有一张如上方的详情卡。</span>
+          <span data-lang="en">🆕 marks a repo that is new to the list compared with previous reports; +N is the star gain since the last report — both are powered by the cross-day reports/history.json. Table columns: rank · repo · stars (delta) · forks · language · trending score · one-line highlight. Every repo in the report gets a detail card like the one above.</span>
+        </div>
+      </div>
+      <p class="sample-note">
+        <span data-lang="zh">样例仅节选榜单前 6 名与 1 张详情卡；完整报告含 Top 12 全部条目，HTML 版为暗黑卡片风单文件。</span>
+        <span data-lang="en">This excerpt shows only the top 6 rows and one detail card; the full report covers all Top 12 entries as a dark-themed single-file HTML.</span>
+      </p>
+    </div>
+  </section>
+
+  <!-- ============ 常见问题 ============ -->
+  <section id="faq" class="section section-alt">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow"><span data-lang="zh">常见问题</span><span data-lang="en">FAQ</span></span>
+        <h2><span data-lang="zh">你可能想问</span><span data-lang="en">You might be wondering</span></h2>
+      </div>
+      <div class="faq-list">
+        <details open>
+          <summary>
+            <span><span data-lang="zh">报「GitHub API 限流警告」或搜索结果为空？</span><span data-lang="en">Seeing rate-limit warnings or empty results?</span></span>
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="faq-body">
+            <span data-lang="zh">匿名访问配额为 60 次/小时（Search 接口 10 次/分钟）。在 <span class="icode">tokens</span> 里填 1~2 个无权限要求的 classic PAT（github.com/settings/tokens），配额提升至 5000 次/小时；工具会自动轮换，全部耗尽时按 <span class="icode">x-ratelimit-reset</span> 等待（封顶 120 秒）。</span>
+            <span data-lang="en">The anonymous quota is 60 requests/hour (10/minute for the Search API). Add one or two classic PATs — no scopes needed — to <span class="icode">tokens</span> to raise it to 5,000/hour. The tool rotates tokens automatically and, when all are exhausted, waits per <span class="icode">x-ratelimit-reset</span> (capped at 120 seconds).</span>
+          </div>
+        </details>
+        <details>
+          <summary>
+            <span><span data-lang="zh">代理环境如何配置？</span><span data-lang="en">Behind a proxy?</span></span>
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="faq-body">
+            <span data-lang="zh">无需配置——工具默认自动使用系统代理（环境变量或 Windows Internet 选项）；代理软件没运行 / 端口失效时，会自动切换为直连模式继续运行。特殊场景可显式设置 <span class="icode">HTTP_PROXY</span> / <span class="icode">HTTPS_PROXY</span> 环境变量。</span>
+            <span data-lang="en">Nothing to configure — the system proxy (environment variables or Windows Internet options) is picked up automatically, and if the proxy is down or its port is stale the tool falls back to a direct connection and keeps going. For special cases you can set <span class="icode">HTTP_PROXY</span> / <span class="icode">HTTPS_PROXY</span> explicitly.</span>
+          </div>
+        </details>
+        <details>
+          <summary>
+            <span><span data-lang="zh">Windows 控制台中文乱码？</span><span data-lang="en">Garbled Chinese in the Windows console?</span></span>
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="faq-body">
+            <span data-lang="zh">本工具所有文件均为 UTF-8，在 Windows Terminal / Git Bash 下正常显示。若在旧版 cmd 中乱码，先执行 <span class="icode">chcp 65001</span>；由计划任务运行的 <span class="icode">run_daily.bat</span> 已强制 UTF-8，不受此影响。</span>
+            <span data-lang="en">Everything is UTF-8 and renders fine in Windows Terminal / Git Bash. In a legacy cmd console, run <span class="icode">chcp 65001</span> first; the scheduled <span class="icode">run_daily.bat</span> already forces UTF-8, so it is unaffected.</span>
+          </div>
+        </details>
+        <details>
+          <summary>
+            <span><span data-lang="zh">为什么有些仓库被过滤掉了？</span><span data-lang="en">Why are some repos filtered out?</span></span>
+            <svg class="chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </summary>
+          <div class="faq-body">
+            <span data-lang="zh">命中任一硬性条件即剔除：fork 仓库、Star 低于 <span class="icode">min_stars</span>、无描述、README 拉取失败或为空。运行结束的过滤统计表会展示各阶段剔除数量。</span>
+            <span data-lang="en">A repo is dropped if it hits any hard rule: it is a fork, its stars are below <span class="icode">min_stars</span>, it has no description, or its README fetch failed or came back empty. The filter-statistics table shows the count removed at every stage.</span>
+          </div>
+        </details>
+      </div>
+
+      <div class="cta-band" style="margin-top:64px">
+        <h2><span data-lang="zh">把 GitHub 趋势装进每天 20:00 的日程</span><span data-lang="en">Put GitHub trending on your 20:00 schedule</span></h2>
+        <p>
+          <span data-lang="zh">clone、装依赖、双击 install_task.bat——之后每天的早报都会安静地出现在 reports/ 目录里。</span>
+          <span data-lang="en">Clone it, install the dependencies, double-click install_task.bat — from then on, every day's report quietly lands in the reports/ directory.</span>
+        </p>
+        <a class="btn btn-primary" href="#install">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M4 19h16"/></svg>
+          <span data-lang="zh">回到安装步骤</span><span data-lang="en">Back to the install steps</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p class="footer-line">Made with AI · 2026</p>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    "use strict";
+    var root = document.documentElement;
+    var btn = document.getElementById("lang-toggle");
+    var label = document.getElementById("lang-label");
+
+    function setLang(lang) {
+      if (lang !== "zh" && lang !== "en") { lang = "zh"; }
+      root.setAttribute("data-lang", lang);
+      root.setAttribute("lang", lang === "zh" ? "zh-CN" : "en");
+      if (label) { label.textContent = lang === "zh" ? "English" : "中文"; }
+      if (btn) { btn.setAttribute("aria-label", lang === "zh" ? "Switch to English" : "切换到中文"); }
+      try { localStorage.setItem("ghd-lang", lang); } catch (e) { /* 隐私模式等场景下静默跳过 */ }
+    }
+
+    function switchLang() {
+      setLang(root.getAttribute("data-lang") === "en" ? "zh" : "en");
+    }
+
+    window.setLang = setLang;
+    window.switchLang = switchLang;
+
+    var saved = "zh";
+    try { saved = localStorage.getItem("ghd-lang") || "zh"; } catch (e) { saved = "zh"; }
+    setLang(saved);
+    if (btn) { btn.addEventListener("click", switchLang); }
+  })();
+</script>
+</body>
+</html>
