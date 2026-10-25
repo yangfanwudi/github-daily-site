@@ -352,6 +352,25 @@
   .cta-band p { color: var(--muted); margin: 13px auto 26px; max-width: 40em; }
   .site-footer { border-top: 1px solid var(--border); padding: 30px 0 34px; }
   .footer-line { text-align: center; color: var(--dim); font-size: 13.5px; letter-spacing: .04em; }
+  .footer-nav { text-align: center; margin-top: 10px; font-size: 13.5px; }
+  .footer-nav a { color: var(--accent); text-decoration: none; }
+  .footer-nav a:hover { text-decoration: underline; }
+
+  /* ---------- 悬浮反馈按钮 ---------- */
+  .fb-float {
+    position: fixed; right: 18px; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 50;
+    display: inline-flex; align-items: center; gap: 7px;
+    background: var(--card2); color: var(--accent);
+    border: 1px solid var(--border2); border-radius: 999px;
+    padding: 10px 16px; font-size: 13.5px; font-weight: 600;
+    text-decoration: none; box-shadow: 0 6px 20px rgba(0,0,0,.45);
+  }
+  .fb-float:hover { border-color: var(--accent); background: rgba(88,166,255,.12); color: var(--accent); }
+  .fb-float svg { flex: 0 0 auto; }
+  @media (max-width: 560px) {
+    .fb-float { right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding: 9px 13px; font-size: 13px; }
+    .site-footer { padding-bottom: 76px; }
+  }
 
   /* ---------- 响应式 ---------- */
   @media (max-width: 1020px) {
@@ -1002,8 +1021,14 @@
 <footer class="site-footer">
   <div class="container">
     <p class="footer-line">Made with AI · 2026</p>
+    <p class="footer-nav"><a href="feedback.html">反馈 Feedback</a></p>
   </div>
 </footer>
+
+<a class="fb-float" href="feedback.html" aria-label="反馈 / Feedback">
+  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z"/></svg>
+  <span data-lang="zh">反馈</span><span data-lang="en">Feedback</span>
+</a>
 
 <script>
   (function () {
